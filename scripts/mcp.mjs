@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 import readline from "node:readline";
-import { randomUUID } from "node:crypto";
 
 const base = process.env.SENMUSE_API_URL ?? "http://127.0.0.1:47831";
 const endpoint = new URL(base);
@@ -28,15 +27,15 @@ const tools = [
   {
     name: "muse_generate",
     description:
-      "Queue image/video generation using the signed-in Muse account. This consumes Muse quota. Use one stable requestId per intended generation to avoid duplicates. Returns a job; poll muse_get_job for results.",
+      "Queue image/video generation using the signed-in Muse account. This consumes Muse quota. requestId is required (8–100 characters): reuse exactly the same value when retrying after a network error or timeout, and choose a new value only for a new intended generation. Returns a job; poll muse_get_job for results.",
     inputSchema: {
       ...object({
         kind: { type: "string", enum: ["image", "video", "edit", "extend"] },
         prompt: { type: "string" },
         referenceIds: { type: "array", items: { type: "string" } },
-        requestId: { type: "string" },
+        requestId: { type: "string", minLength: 8, maxLength: 100, pattern: "\\S" },
       }),
-      required: ["kind", "prompt"],
+      required: ["kind", "prompt", "requestId"],
     },
   },
   {
@@ -97,10 +96,16 @@ async function call(name, args = {}) {
     case "muse_status":
       return request("/v1/status");
     case "muse_generate":
-      return request("/v1/jobs", {
-        ...args,
-        requestId: args.requestId ?? randomUUID(),
-      });
+      if (
+        typeof args?.requestId !== "string" ||
+        args.requestId.length < 8 ||
+        args.requestId.length > 100 ||
+        !args.requestId.trim()
+      )
+        throw new Error(
+          "requestId is required and must be 8–100 characters. Reuse the same requestId after a network error or timeout; use a new value for a new generation.",
+        );
+      return request("/v1/jobs", args);
     case "muse_list_jobs":
       return request("/v1/jobs");
     case "muse_get_job":
