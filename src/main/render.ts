@@ -289,6 +289,8 @@ export async function renderProject(
       graph.push(
         `[${index}:v:0]${scale},fps=30,setsar=1,format=yuv420p,tpad=stop_mode=clone:stop_duration=${shot.duration},trim=duration=${shot.duration},setpts=PTS-STARTPTS[v${index}]`,
       );
+      // A replacement soundtrack needs only the picture from each shot.
+      if (audioAsset) continue;
       if (asset.kind === "video" && metadata.get(asset.id)?.hasAudio) {
         graph.push(
           `[${index}:a:0]aresample=48000,aformat=channel_layouts=stereo,apad=whole_dur=${shot.duration},atrim=duration=${shot.duration},asetpts=PTS-STARTPTS[a${index}]`,
@@ -300,15 +302,14 @@ export async function renderProject(
       }
     }
     const streams = project.shots
-      .map((_, index) => `[v${index}][a${index}]`)
+      .map((_, index) => `[v${index}]${audioAsset ? "" : `[a${index}]`}`)
       .join("");
     graph.push(
-      `${streams}concat=n=${project.shots.length}:v=1:a=1[vconcat][aconcat]`,
+      `${streams}concat=n=${project.shots.length}:v=1:a=${audioAsset ? 0 : 1}[vconcat]${audioAsset ? "" : "[aconcat]"}`,
     );
     if (burn)
       graph.push("[vconcat]subtitles=subtitles.ass:fontsdir=fonts[vout]");
     if (audioAsset) {
-      graph.push("[aconcat]anullsink");
       graph.push(
         `[${shotAssets.length}:a:0]aresample=48000,aformat=channel_layouts=stereo,apad=whole_dur=${totalDuration},atrim=duration=${totalDuration},asetpts=PTS-STARTPTS[aout]`,
       );

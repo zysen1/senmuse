@@ -71,6 +71,44 @@ async function probe(file: string): Promise<{
   };
 }
 
+async function audioWindow(file: string, start: number, duration: number) {
+  const { stdout } = await exec(
+    ffmpegPath(),
+    [
+      "-hide_banner",
+      "-i",
+      file,
+      "-ss",
+      String(start),
+      "-t",
+      String(duration),
+      "-vn",
+      "-ac",
+      "1",
+      "-ar",
+      "48000",
+      "-f",
+      "f32le",
+      "-",
+    ],
+    { encoding: "buffer" },
+  );
+  let risingCrossings = 0;
+  let sumSquares = 0;
+  let previous = 0;
+  const samples = stdout.length / 4;
+  for (let index = 0; index < samples; index++) {
+    const value = stdout.readFloatLE(index * 4);
+    if (previous < 0 && value >= 0) risingCrossings++;
+    sumSquares += value * value;
+    previous = value;
+  }
+  return {
+    frequency: risingCrossings / (samples / 48000),
+    rms: Math.sqrt(sumSquares / samples),
+  };
+}
+
 beforeAll(async () => {
   await ensureFFmpeg();
   directory = await fs.mkdtemp(path.join(os.tmpdir(), "senmuse-render-test-"));
@@ -164,6 +202,9 @@ describe("真实 FFmpeg 合成", () => {
     expect(info.height).toBe(1920);
     expect(info.duration).toBeCloseTo(1.4, 1);
     expect(info.audio).toBe(true);
+    const original = await audioWindow(result.path, 0.65, 0.12);
+    expect(original.frequency).toBeGreaterThan(400);
+    expect(original.frequency).toBeLessThan(480);
     expect(progress.at(-1)).toBe(100);
     const srt = await fs.readFile(
       result.path.replace(/\.mp4$/, ".srt"),
@@ -200,6 +241,10 @@ describe("真实 FFmpeg 合成", () => {
     const info = await probe(result.path);
     expect(info).toMatchObject({ width: 1080, height: 1080, audio: true });
     expect(info.duration).toBeCloseTo(0.5, 1);
+    const replacement = await audioWindow(result.path, 0.03, 0.12);
+    expect(replacement.frequency).toBeGreaterThan(800);
+    expect(replacement.frequency).toBeLessThan(960);
+    expect((await audioWindow(result.path, 0.3, 0.1)).rms).toBeLessThan(0.001);
     expect(
       await fs.readFile(result.path.replace(/\.mp4$/, ".srt"), "utf8"),
     ).toContain("可以单独修改的字幕");
