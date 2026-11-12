@@ -270,11 +270,13 @@ export async function renderProject(
         });
     }
     const input: string[] = [];
-    for (const asset of shotAssets) {
+    for (const [index, asset] of shotAssets.entries()) {
       if (asset.kind === "image") input.push("-loop", "1", "-framerate", "30");
-      input.push("-i", asset.path);
+      // Bound input streams as well as filter output so looped images can reach EOF.
+      input.push("-t", String(project.shots[index].duration), "-i", asset.path);
     }
-    if (audioAsset) input.push("-i", audioAsset.path);
+    if (audioAsset)
+      input.push("-t", String(totalDuration), "-i", audioAsset.path);
     const { width, height } = FORMATS[project.aspect];
     const scale =
       project.fit === "cover"
@@ -289,11 +291,11 @@ export async function renderProject(
       );
       if (asset.kind === "video" && metadata.get(asset.id)?.hasAudio) {
         graph.push(
-          `[${index}:a:0]aresample=48000,aformat=channel_layouts=stereo,apad,atrim=duration=${shot.duration},asetpts=PTS-STARTPTS[a${index}]`,
+          `[${index}:a:0]aresample=48000,aformat=channel_layouts=stereo,apad=whole_dur=${shot.duration},atrim=duration=${shot.duration},asetpts=PTS-STARTPTS[a${index}]`,
         );
       } else {
         graph.push(
-          `anullsrc=r=48000:cl=stereo,atrim=duration=${shot.duration},asetpts=PTS-STARTPTS[a${index}]`,
+          `anullsrc=r=48000:cl=stereo:d=${shot.duration},atrim=duration=${shot.duration},asetpts=PTS-STARTPTS[a${index}]`,
         );
       }
     }
@@ -308,7 +310,7 @@ export async function renderProject(
     if (audioAsset) {
       graph.push("[aconcat]anullsink");
       graph.push(
-        `[${shotAssets.length}:a:0]aresample=48000,aformat=channel_layouts=stereo,apad,atrim=duration=${totalDuration},asetpts=PTS-STARTPTS[aout]`,
+        `[${shotAssets.length}:a:0]aresample=48000,aformat=channel_layouts=stereo,apad=whole_dur=${totalDuration},atrim=duration=${totalDuration},asetpts=PTS-STARTPTS[aout]`,
       );
     }
     const args = [

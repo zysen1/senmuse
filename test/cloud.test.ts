@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 import { afterAll, beforeAll, expect, it } from "vitest";
-import { ffmpegPath } from "../src/main/ffmpeg";
+import { ensureFFmpeg, ffmpegPath } from "../src/main/ffmpeg";
 import { parseManifest } from "../src/cloud/manifest";
 
 const exec = promisify(execFile);
@@ -13,6 +13,7 @@ let directory: string;
 let entry: string;
 let environment: NodeJS.ProcessEnv;
 beforeAll(async () => {
+  await ensureFFmpeg();
   directory = await fs.mkdtemp(path.join(os.tmpdir(), "senmuse-cloud-"));
   const checkout = path.join(directory, "无依赖仓库");
   // Deliberately exclude node_modules and dist: this is the repository-only Linux flow.
@@ -37,7 +38,7 @@ beforeAll(async () => {
     SENMUSE_CACHE_DIR: path.join(directory, "cache"),
   };
   delete environment.ELECTRON_RUN_AS_NODE;
-});
+}, 300_000);
 afterAll(async () => {
   if (directory) await fs.rm(directory, { recursive: true, force: true });
 });

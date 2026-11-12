@@ -5,6 +5,7 @@ import path from "node:path";
 import { promisify } from "node:util";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { ffmpegPath, renderProject } from "../src/main/render";
+import { ensureFFmpeg } from "../src/main/ffmpeg";
 import type { Asset, Project } from "../src/shared/types";
 
 const exec = promisify(execFile);
@@ -40,9 +41,7 @@ function project(overrides: Partial<Project> = {}): Project {
   };
 }
 
-async function probe(
-  file: string,
-): Promise<{
+async function probe(file: string): Promise<{
   duration: number;
   width: number;
   height: number;
@@ -73,6 +72,7 @@ async function probe(
 }
 
 beforeAll(async () => {
+  await ensureFFmpeg();
   directory = await fs.mkdtemp(path.join(os.tmpdir(), "senmuse-render-test-"));
   const image = path.join(directory, "fixture.png");
   const video = path.join(directory, "fixture.mp4");
@@ -146,7 +146,7 @@ beforeAll(async () => {
       createdAt: 0,
     },
   ];
-}, 30_000);
+}, 300_000);
 
 afterAll(async () => {
   if (directory) await fs.rm(directory, { recursive: true, force: true });
@@ -204,6 +204,45 @@ describe("真实 FFmpeg 合成", () => {
       await fs.readFile(result.path.replace(/\.mp4$/, ".srt"), "utf8"),
     ).toContain("可以单独修改的字幕");
   }, 60_000);
+
+  it("finishes multiple looped images with a replacement audio track", async () => {
+    const progress: number[] = [];
+    const result = await renderProject(
+      project({
+        audioAssetId: "audio",
+        shots: [
+          {
+            id: "one",
+            prompt: "",
+            caption: "第一张图片",
+            duration: 1,
+            assetId: "image",
+          },
+          {
+            id: "two",
+            prompt: "",
+            caption: "第二张图片",
+            duration: 1,
+            assetId: "image",
+          },
+        ],
+      }),
+      assets,
+      {
+        outputDir: directory,
+        onProgress: (value) => progress.push(value),
+        signal: AbortSignal.timeout(30_000),
+      },
+    );
+    const info = await probe(result.path);
+    expect(info).toMatchObject({
+      width: 1080,
+      height: 1920,
+      audio: true,
+    });
+    expect(info.duration).toBeCloseTo(2, 1);
+    expect(progress.at(-1)).toBe(100);
+  }, 40_000);
 
   it("rejects missing assets and non-finite durations without leaving render directories", async () => {
     await expect(

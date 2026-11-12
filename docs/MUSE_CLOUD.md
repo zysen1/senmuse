@@ -44,7 +44,7 @@ node scripts/senmuse.mjs doctor --json
 node scripts/senmuse.mjs doctor --prepare --json
 ```
 
-`--prepare` 优先复用可用的系统 FFmpeg。缺少可用组件时，会下载并校验固定版本的 Linux x64 或 arm64 合成工具。中文烧录字幕还需要仓库提供的字体文件和 FFmpeg 字幕滤镜。以命令实际返回的检查结果为准。
+`--prepare` 优先复用可用的系统 FFmpeg。未找到 FFmpeg 时，会下载并校验固定版本的 Linux x64 或 arm64 合成工具。中文烧录字幕还需要仓库提供的字体文件和 FFmpeg 字幕滤镜。若已有 FFmpeg 缺少所需编码器或滤镜，`doctor` 会列出缺项，请更换合适的 FFmpeg，或在仅缺字幕滤镜时设置 `burnCaptions:false` 导出独立 SRT。
 
 有现成 FFmpeg 或需要调整缓存位置时，可以设置以下环境变量。将路径替换成云主机中的实际位置。
 
