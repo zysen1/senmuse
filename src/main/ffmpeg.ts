@@ -1,6 +1,13 @@
 import { createHash } from "node:crypto";
 import fs from "node:fs/promises";
-import { createReadStream, createWriteStream, existsSync } from "node:fs";
+import {
+  createReadStream,
+  createWriteStream,
+  existsSync,
+  accessSync,
+  statSync,
+  constants,
+} from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { Readable, Transform } from "node:stream";
@@ -26,15 +33,40 @@ const ARCHIVES: Record<string, string> = {
 let resolved: string | undefined;
 let preparing: Promise<string> | undefined;
 
+function executableFile(file: string): boolean {
+  try {
+    accessSync(file, constants.X_OK);
+    return statSync(file).isFile();
+  } catch {
+    return false;
+  }
+}
+
 export function ffmpegPath(): string {
-  if (resolved) return resolved;
+  if (resolved && executableFile(resolved)) return resolved;
+  resolved = undefined;
   if (!process.versions.electron) {
+    if (process.env.SENMUSE_FFMPEG) {
+      const custom = path.resolve(process.env.SENMUSE_FFMPEG);
+      if (!executableFile(custom))
+        throw new Error("SENMUSE_FFMPEG 指定的文件无法执行。");
+      return custom;
+    }
     const local = path.resolve(
       "node_modules",
       "ffmpeg-static",
       process.platform === "win32" ? "ffmpeg.exe" : "ffmpeg",
     );
-    if (existsSync(local)) return local;
+    if (executableFile(local)) return local;
+    for (const directory of (process.env.PATH ?? "")
+      .split(path.delimiter)
+      .filter(Boolean)) {
+      const binary = path.join(
+        directory,
+        process.platform === "win32" ? "ffmpeg.exe" : "ffmpeg",
+      );
+      if (executableFile(binary)) return binary;
+    }
   }
   throw new Error("视频合成工具尚未准备好，请重新点击导出。");
 }
@@ -44,7 +76,9 @@ async function cacheRoot(): Promise<string> {
     const { app } = await import("electron");
     return path.join(app.getPath("userData"), "tools");
   }
-  return path.join(os.tmpdir(), "senmuse-tools");
+  return process.env.SENMUSE_CACHE_DIR
+    ? path.resolve(process.env.SENMUSE_CACHE_DIR)
+    : path.join(os.homedir(), ".cache", "senmuse", "tools");
 }
 
 async function fileHash(file: string): Promise<string> {
@@ -83,8 +117,11 @@ async function prepare(signal?: AbortSignal): Promise<string> {
     if (
       receipt.archiveSha256 === checksum &&
       receipt.binarySha256 === (await fileHash(executable))
-    )
+    ) {
+      // Cache copies/backups may preserve bytes but lose the executable bit.
+      if (!executableFile(executable)) await fs.chmod(executable, 0o755);
       return executable;
+    }
   } catch {
     /* An incomplete or corrupt cache is replaced by a verified download. */
   }
@@ -147,14 +184,48 @@ async function prepare(signal?: AbortSignal): Promise<string> {
   }
 }
 
-/** Source installs use their installed helper. Packaged apps download the verified helper on first export. */
-export async function ensureFFmpeg(signal?: AbortSignal): Promise<string> {
-  signal?.throwIfAborted();
+/** Locate an existing tool without downloading. Used by cloud preflight checks. */
+export async function locateFFmpeg(): Promise<string | undefined> {
   try {
     return ffmpegPath();
   } catch {
-    /* First export from a packaged application. */
+    if (!process.versions.electron && process.env.SENMUSE_FFMPEG)
+      throw new Error("SENMUSE_FFMPEG 指定的文件无法执行，请更正该路径。");
   }
+  const platform = `${process.platform}-${process.arch}`;
+  const directory = path.join(
+    await cacheRoot(),
+    `ffmpeg-${RELEASE}-${platform}`,
+  );
+  const binary = path.join(
+    directory,
+    process.platform === "win32" ? "ffmpeg.exe" : "ffmpeg",
+  );
+  try {
+    const receipt = JSON.parse(
+      await fs.readFile(path.join(directory, "verified.json"), "utf8"),
+    );
+    if (
+      executableFile(binary) &&
+      ARCHIVES[platform] &&
+      receipt.archiveSha256 === ARCHIVES[platform] &&
+      receipt.binarySha256 === (await fileHash(binary))
+    ) {
+      resolved = binary;
+      return binary;
+    }
+  } catch {
+    /* No valid cached tool. */
+  }
+  return undefined;
+}
+
+/** Source installs reuse a local helper. Otherwise prepare a verified platform-specific binary. */
+export async function ensureFFmpeg(signal?: AbortSignal): Promise<string> {
+  signal?.throwIfAborted();
+  const available = await locateFFmpeg();
+  signal?.throwIfAborted();
+  if (available) return available;
   if (process.versions.electron) {
     const { app } = await import("electron");
     const local = path.join(

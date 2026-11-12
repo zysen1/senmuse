@@ -1,7 +1,7 @@
 {
   "name": "senmuse",
   "productName": "SenMuse",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "森映 · 中文 Muse 创作与分镜成片工作台",
   "author": "zysen1",
   "license": "MIT",
@@ -13,7 +13,8 @@
     "start": "electron .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --root .",
-    "package": "npm run build && node scripts/package.mjs"
+    "package": "npm run build && node scripts/package.mjs",
+    "cloud": "node scripts/senmuse.mjs"
   },
   "devDependencies": {
     "@electron/packager": "^20.3.0",

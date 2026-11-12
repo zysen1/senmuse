@@ -3,13 +3,14 @@ import { randomUUID } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
 import type { Asset, Project } from "../shared/types";
-import { ensureFFmpeg, ffmpegPath } from "./ffmpeg";
-export { ffmpegPath } from "./ffmpeg";
+import { ensureFFmpeg, ffmpegPath } from "./ffmpeg.ts";
+export { ffmpegPath } from "./ffmpeg.ts";
 
 interface RenderOptions {
   outputDir: string;
   onProgress: (progress: number) => void;
   signal?: AbortSignal;
+  fontPath?: string;
 }
 
 interface CommandResult {
@@ -139,7 +140,7 @@ function subtitles(project: Project): { srt: string; ass: string } {
   };
 }
 
-async function inspectAsset(
+export async function inspectAsset(
   asset: Asset,
   signal?: AbortSignal,
 ): Promise<{ hasAudio: boolean }> {
@@ -258,7 +259,8 @@ export async function renderProject(
       await fs.mkdir(fontDirectory);
       await fs
         .copyFile(
-          path.join(appRoot, "assets", "fonts", "NotoSansCJKsc-Regular.otf"),
+          options.fontPath ??
+            path.join(appRoot, "assets", "fonts", "NotoSansCJKsc-Regular.otf"),
           path.join(fontDirectory, "NotoSansCJKsc-Regular.otf"),
         )
         .catch(() => {

@@ -652,7 +652,8 @@ async function start(): Promise<void> {
   window.on("close", (event) => {
     if (!shuttingDown) {
       event.preventDefault();
-      window.hide();
+      if (process.platform === "darwin") window.hide();
+      else app.quit();
     }
   });
   if (process.env.SENMUSE_DEV_URL)

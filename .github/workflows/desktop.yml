@@ -1,0 +1,133 @@
+name: Desktop builds
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Optional preview tag, for example v0.2.0-preview.1'
+        required: false
+        type: string
+      release_mode:
+        description: 'Keep build artifacts, create a draft preview, or publish a prerelease'
+        required: true
+        default: artifacts-only
+        type: choice
+        options: [artifacts-only, draft, prerelease]
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: desktop-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name != 'release' }}
+
+jobs:
+  linux-cloud:
+    name: Linux cloud CLI
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      SENMUSE_CACHE_DIR: ${{ runner.temp }}/senmuse-cloud-render-tools
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: '24'
+      - name: Prepare cloud render tools
+        run: |
+          NODE_BIN="$(command -v node)"
+          PATH='' "$NODE_BIN" scripts/senmuse.mjs doctor --prepare --json > cloud-doctor.json
+          cat cloud-doctor.json
+      - name: Render a real cloud demo without npm install
+        run: |
+          NODE_BIN="$(command -v node)"
+          PATH='' "$NODE_BIN" scripts/senmuse.mjs demo ./cloud-demo --json > cloud-result.json
+          cat cloud-result.json
+      - uses: actions/upload-artifact@v7.0.2
+        if: always()
+        with:
+          name: Linux-cloud-validation
+          path: |
+            cloud-doctor.json
+            cloud-result.json
+            cloud-demo/
+          if-no-files-found: warn
+          retention-days: 14
+
+  build:
+    name: ${{ matrix.platform }}-${{ matrix.arch }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: windows-2025
+            platform: win32
+            arch: x64
+          - runner: macos-15
+            platform: darwin
+            arch: arm64
+          - runner: macos-15-intel
+            platform: darwin
+            arch: x64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    env:
+      SENMUSE_PLATFORM: ${{ matrix.platform }}
+      SENMUSE_ARCH: ${{ matrix.arch }}
+      SENMUSE_RELEASE_VERSION: ${{ github.event.release.tag_name || inputs.release_tag || '' }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run package
+      - name: Run the packaged desktop app
+        run: node scripts/smoke-package.mjs
+      - uses: actions/upload-artifact@v7.0.2
+        with:
+          name: SenMuse-${{ matrix.platform }}-${{ matrix.arch }}
+          path: |
+            release/*.zip
+            release/*.zip.sha256
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
+
+  release-assets:
+    if: github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && inputs.release_mode != 'artifacts-only')
+    needs: [build, linux-cloud]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: '24'
+      - uses: actions/download-artifact@v8.0.2
+        with:
+          pattern: SenMuse-*
+          path: release
+          merge-multiple: true
+      - name: Attach tested packages or publish a preview
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.event.release.tag_name || inputs.release_tag }}
+          RELEASE_MODE: ${{ github.event_name == 'release' && 'published' || inputs.release_mode }}
+        run: node scripts/publish-release.mjs

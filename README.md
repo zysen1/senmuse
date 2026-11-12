@@ -1,12 +1,37 @@
 # 森映 SenMuse
 
-中文 Muse 创作与分镜成片工作台。用自己的 Muse 账号生成素材，按镜头修改，再把图片、视频、字幕和音轨合成为一条成片。
+中文 Muse 创作与分镜成片工具。可以把仓库链接交给 Muse，让它在自己的 Linux 云主机制作成片；也可以下载 Windows / macOS 桌面应用操作。
 
-当前版本为 **0.1.0 开发预览**，优先验证 macOS Apple Silicon。Muse 网页适配需要有效登录，网页变化可能影响生成。首次公开版本的验证范围会在下方持续记录。
+当前版本为 **0.2.0 开发预览**。云端合成与桌面登录适配是两条独立路径：云端使用 Muse 当前会话实际提供的生成工具，桌面版操作已登录的 Muse 网页。本项目没有提取或提供独立的 Muse Video 官方 API。
 
-## 开始使用
+## 最简单的用法：把链接发给 Muse
 
-普通用户可以从 [Releases](https://github.com/zysen1/senmuse/releases) 下载适合自己电脑的应用包。macOS 解压后将 SenMuse.app 放进“应用程序”。当前构建采用本机签名，尚未经过 Apple 公证，系统可能要求在“隐私与安全性”中确认打开。
+复制这段话到 Muse，改成你的主题即可：
+
+```text
+请使用 https://github.com/zysen1/senmuse 帮我制作一条15秒的雨天咖啡馆短片，9:16竖屏，配简短中文字幕。
+先读仓库AGENTS.md和docs/MUSE_CLOUD.md，在你的Linux云主机运行森映CLI。
+请用你当前可用的工具生成并保存真实素材，完成分镜清单、验证和合成，最终交付可下载的MP4和SRT。
+如果缺少必要工具，请说明具体缺项；不要把测试色板当作生成作品。
+```
+
+云端入口无需安装 Electron、运行 `npm ci` 或打开登录窗口。需要 Node.js 24+，优先复用系统 FFmpeg，缺少时可自动下载并校验。Muse 是否能生成视频取决于当前会话实际开放的工具。
+
+```sh
+git clone https://github.com/zysen1/senmuse.git
+cd senmuse
+node scripts/senmuse.mjs doctor --prepare --json
+node scripts/senmuse.mjs demo ./senmuse-demo --json
+```
+
+`demo` 生成明确标注的测试素材并真正导出视频，用于验证环境。正式作品的制作步骤和清单示例见 [Linux 云端使用指南](docs/MUSE_CLOUD.md)。没有 Node.js 24 但已有 npm 时，可将 `node` 替换为 `npx --yes --package=node@24 node`。
+
+## Windows / Mac 桌面使用
+
+从 [Releases](https://github.com/zysen1/senmuse/releases) 下载适合电脑的应用包。
+
+- **Windows x64**：下载 `Windows-x64-portable.zip`，解压整个文件夹，双击 `SenMuse.exe`。无需安装 Node.js 或管理员权限，请保留同目录的依赖文件。当前尚无商业代码签名，Windows 可能显示来源提示。
+- **Mac**：选择对应芯片的 ZIP，解压后将 `SenMuse.app` 放进“应用程序”。当前采用本机签名，尚未经过 Apple 公证，系统可能要求在“隐私与安全性”中确认打开。
 
 1. 打开森映，点击 **登录 Muse**，在 Muse 官方页面完成登录。
 2. 返回森映，点击 **我已登录，检查连接**。
@@ -17,18 +42,19 @@
 
 ## 已实现的工作流
 
-| 工作流 | 能做什么 |
-| --- | --- |
-| 创作台 | 图片、视频、参考图、MP4 修改、基于原会话的视频续拍 |
-| 分镜成片 | 按段落拆分草稿、手动编辑镜头、单镜重做、镜头排序、原素材复用 |
-| 本地合成 | 9∶16、16∶9、1∶1，适应或裁切画面，中文烧录字幕、SRT、可选音轨 |
-| 任务队列 | 持久保存、暂停、取消、手动重试、发送状态不明确时停止并提示检查 |
-| 素材库 | 本地预览、导入图片/视频/音频、定位原文件 |
-| Agent 接口 | 带密钥的本地 HTTP API 和 MCP stdio 桥接 |
+| 工作流         | 能做什么                                                               |
+| -------------- | ---------------------------------------------------------------------- |
+| Linux 云端 CLI | 环境检查、分镜清单、素材验证、实际合成与结构化 JSON 输出，无需桌面环境 |
+| 创作台         | 图片、视频、参考图、MP4 修改、基于原会话的视频续拍                     |
+| 分镜成片       | 按段落拆分草稿、手动编辑镜头、单镜重做、镜头排序、原素材复用           |
+| 本地合成       | 9∶16、16∶9、1∶1，适应或裁切画面，中文烧录字幕、SRT、可选音轨           |
+| 任务队列       | 持久保存、暂停、取消、手动重试、发送状态不明确时停止并提示检查         |
+| 素材库         | 本地预览、导入图片/视频/音频、定位原文件                               |
+| Agent 接口     | 带密钥的本地 HTTP API 和 MCP stdio 桥接                                |
 
 “按段落拆分”根据空行整理分镜。角色一致性、画面质量、生成时长取决于 Muse 实际输出。导出的画幅由本地合成控制，裁切可能改变构图。配音目前通过导入音频实现。
 
-## 运行源码
+## 运行桌面源码
 
 需要 Node.js 24 或更新版本，以及 npm。
 
@@ -48,7 +74,7 @@ npm test
 npm run package
 ```
 
-`npm run package` 为当前系统和架构构建应用。macOS 额外生成 ZIP 文件。Windows、Linux 源码构建路径仍需要对应系统实测。
+`npm run package` 为当前系统和架构构建桌面应用及压缩包。Linux 云端直接使用上面的 CLI，无需打包桌面程序。发布页记录每个构建的验证范围。
 
 ## 网络与账号
 
@@ -71,18 +97,18 @@ curl http://127.0.0.1:47831/v1/jobs \
 
 同一次生成的网络重试请复用 `requestId`，新的生成请换一个值。请求返回任务记录，生成结果需要继续查询。
 
-| 方法与路径 | 用途 |
-| --- | --- |
-| `GET /v1/status` | 连接和队列状态 |
-| `POST /v1/jobs` | 创建生成任务 |
-| `GET /v1/jobs` | 任务列表 |
-| `GET /v1/jobs/{id}` | 单个任务和结果素材 ID |
-| `POST /v1/jobs/{id}/cancel` | 取消本地任务 |
-| `POST /v1/jobs/{id}/retry` | 明确请求重新生成 |
-| `GET /v1/assets` | 素材列表及下载地址 |
-| `GET /v1/assets/{id}/file` | 下载素材，仍需密钥 |
-| `GET /v1/projects` | 分镜项目列表 |
-| `POST /v1/projects/{id}/export` | 启动本地成片导出 |
+| 方法与路径                      | 用途                  |
+| ------------------------------- | --------------------- |
+| `GET /v1/status`                | 连接和队列状态        |
+| `POST /v1/jobs`                 | 创建生成任务          |
+| `GET /v1/jobs`                  | 任务列表              |
+| `GET /v1/jobs/{id}`             | 单个任务和结果素材 ID |
+| `POST /v1/jobs/{id}/cancel`     | 取消本地任务          |
+| `POST /v1/jobs/{id}/retry`      | 明确请求重新生成      |
+| `GET /v1/assets`                | 素材列表及下载地址    |
+| `GET /v1/assets/{id}/file`      | 下载素材，仍需密钥    |
+| `GET /v1/projects`              | 分镜项目列表          |
+| `POST /v1/projects/{id}/export` | 启动本地成片导出      |
 
 ## MCP
 
