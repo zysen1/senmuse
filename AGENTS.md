@@ -1,6 +1,14 @@
 # Working in SenMuse
 
-SenMuse includes a Chinese desktop application, a standalone cloud renderer, and an API provider interface. When the user asks to let Claude/Codex call Muse generation from a Muse Linux host, follow [docs/MUSE_API.md](docs/MUSE_API.md) and the native API workflow below. When the user asks to create a finished video from media, follow [docs/MUSE_CLOUD.md](docs/MUSE_CLOUD.md).
+SenMuse includes a Chinese desktop application, a standalone cloud renderer, and an API provider interface. For API installation, networking or Claude/Codex connectivity, start with [docs/AI_DEPLOYMENT.md](docs/AI_DEPLOYMENT.md). Then follow [docs/MUSE_API.md](docs/MUSE_API.md) for a Muse Linux host or [docs/API_GATEWAY.md](docs/API_GATEWAY.md) for the login gateway. When the user asks to create a finished video from media, follow [docs/MUSE_CLOUD.md](docs/MUSE_CLOUD.md).
+
+## Deploying for an actual client
+
+Identify both the API host and the host that actually sends HTTP/MCP requests. The default loopback listener is local to its network namespace; a cloud-hosted client cannot use the user's PC loopback address. Setting `host` or `publicUrl` does not create external connectivity. Follow the deployment runbook to choose a documented native ingress, existing HTTPS proxy or authorized SSH forward. Preserve authentication, existing configuration and user files; use the independent API's HTTP `/mcp` endpoint.
+
+Complete the available installation and configuration work, then verify from the intended client. Report `local_ok`, `remote_ok` and `generation_ok` separately. If the client is inaccessible, mark remote checks unverified and supply executable checks; do not substitute a server-local health request. A working listener, provider `ready`, MCP tool discovery and a real generated video are separate acceptance results.
+
+The outbound worker/relay section is an implementation plan, not a shipped feature. Implement it only within the user's requested scope and available infrastructure, with persistent dispatch state, separate credentials and authenticated media transfer. Never claim an existing relay command, infer ingress from an outbound proxy, or automatically resubmit generation after uncertain dispatch.
 
 ## Connecting native Muse components to the API
 
