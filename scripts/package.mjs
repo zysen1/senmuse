@@ -39,6 +39,10 @@ const apps = await packager({
   prune: true,
   ignore: [
     /^\/src($|\/)/,
+    /^\/api($|\/)/,
+    /^\/examples($|\/)/,
+    /^\/\.senmuse-api($|\/)/,
+    /^\/\.muse-probe($|\/)/,
     /^\/test($|\/)/,
     /^\/release($|\/)/,
     /^\/\.git($|\/)/,

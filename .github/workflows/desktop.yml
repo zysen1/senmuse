@@ -63,6 +63,28 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
+  api-service:
+    name: Linux API service
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: '24'
+      - run: npm ci --ignore-scripts
+      - run: npm ci --prefix api --ignore-scripts
+      - run: npm run typecheck
+      - name: Test API, native components, MCP SDK and encrypted gateway
+        run: npx vitest run --root . test/api-engine.test.ts test/api-server.test.ts test/native.test.ts test/native-cli.test.ts test/gateway-crypto.test.ts test/muse-gateway.test.ts
+      - name: Check dependency-free native service entry
+        run: |
+          node scripts/senmuse-api.mjs init --native --data /tmp/senmuse-api-check
+          node scripts/probe-muse.mjs --json > /tmp/senmuse-probe.json
+          node scripts/senmuse-api.mjs --help
+
   build:
     name: ${{ matrix.platform }}-${{ matrix.arch }}
     strategy:
@@ -93,6 +115,7 @@ jobs:
           node-version: '24'
           cache: npm
       - run: npm ci
+      - run: npm ci --prefix api --ignore-scripts
       - run: npm run typecheck
       - run: npm test
       - run: npm run package
@@ -110,7 +133,7 @@ jobs:
 
   release-assets:
     if: github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && inputs.release_mode != 'artifacts-only')
-    needs: [build, linux-cloud]
+    needs: [build, linux-cloud, api-service]
     runs-on: ubuntu-24.04
     permissions:
       contents: write

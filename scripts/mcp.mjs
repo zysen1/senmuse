@@ -1,13 +1,11 @@
 #!/usr/bin/env node
 import readline from "node:readline";
 
-const base = process.env.SENMUSE_API_URL ?? "http://127.0.0.1:47831";
-const endpoint = new URL(base);
-if (
-  endpoint.protocol !== "http:" ||
-  !["127.0.0.1", "localhost"].includes(endpoint.hostname)
-)
-  throw new Error("SENMUSE_API_URL must point to the local SenMuse app.");
+const endpoint = new URL(process.env.SENMUSE_API_URL ?? "http://127.0.0.1:47831");
+if (endpoint.username || endpoint.password || endpoint.search || endpoint.hash || endpoint.pathname !== "/" ||
+    !(endpoint.protocol === "https:" || (endpoint.protocol === "http:" && ["127.0.0.1", "localhost", "[::1]"].includes(endpoint.hostname))))
+  throw new Error("SENMUSE_API_URL must be local HTTP or an HTTPS service origin.");
+const base = endpoint.origin;
 const token = process.env.SENMUSE_API_TOKEN;
 if (!token)
   throw new Error(
@@ -21,7 +19,7 @@ const object = (properties) => ({
 const tools = [
   {
     name: "muse_status",
-    description: "Check the local Muse connection and queue.",
+    description: "Check the Muse connection and queue.",
     inputSchema: object({}),
   },
   {
@@ -81,7 +79,8 @@ async function request(route, body) {
       "Content-Type": "application/json",
     },
     body: body === undefined ? undefined : JSON.stringify(body),
-    signal: AbortSignal.timeout(15000),
+    signal: AbortSignal.timeout(180000),
+    redirect: "error",
   });
   const data = await response.json();
   if (!response.ok) throw new Error(data.error ?? `HTTP ${response.status}`);

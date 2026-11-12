@@ -1,8 +1,39 @@
 # 森映 SenMuse
 
-中文 Muse 创作与分镜成片工具。可以把仓库链接交给 Muse，让它在自己的 Linux 云主机制作成片；也可以下载 Windows / macOS 桌面应用操作。
+让 Claude、Codex 通过 REST / MCP 调用 Muse 生成视频，也可以让 Muse 在自己的 Linux 云主机运行 API，调用本机媒体组件。另附 Windows / macOS 创作与分镜成片工具。
 
-当前版本为 **0.2.0 开发预览**。云端合成与桌面登录适配是两条独立路径：云端使用 Muse 当前会话实际提供的生成工具，桌面版操作已登录的 Muse 网页。本项目没有提取或提供独立的 Muse Video 官方 API。
+**API 0.3.0 预览代码已提供；桌面下载版仍为 0.2.0。** API 服务是独立实现的非官方接入，不是 Muse 官方视频 API。已验证协议、任务队列、原生组件适配契约和 MCP 客户端连接；真实 Muse 账号的视频生成仍待联调，不能把本地测试视为生成能力验收。
+
+
+## 让 Claude / Codex 直接调用 Muse
+
+| 运行位置 | 实际生成路径 | 入门 |
+| --- | --- | --- |
+| **Muse 自己的 Linux 云主机** | 自动检查已安装的 `media-generation`，直接调用原生媒体组件；不需要再次唤起聊天 Agent | [Muse 原生部署](docs/MUSE_API.md) |
+| **Windows / Mac / 普通 Linux** | 使用你自己登录的 Muse 会话，连接加密网关提交任务，保存真实结果 | [独立 API 与客户端配置](docs/API_GATEWAY.md) |
+
+两条路径共用带密钥的 `POST /v1/jobs`、任务查询、素材上传下载、队列控制和 `/mcp`。请求立即返回任务 ID；网络重试复用 `requestId`，避免重复消耗生成额度。原生组件按当前主机帮助声明能力，未确认的改片、续拍或固定时长不会伪装成已支持。
+
+**直接把这一段交给 Muse：**
+
+```text
+请把 https://github.com/zysen1/senmuse 部署为你云主机上的视频生成 API。
+先读 AGENTS.md 和 docs/MUSE_API.md，运行组件探测，优先使用仓库的自动原生适配器调用已安装的 media-generation。
+启动 API，验证 REST 和 MCP；按你当前网络组件的真实说明建立客户端入口。
+请实际生成一个简短测试视频，核验文件后返回能用的连接地址和 Claude/Codex 配置。
+保留 API 鉴权，不公开凭据；不把模拟测试当成真实生成，不猜测端口映射或视频接口。
+```
+
+在已有兼容媒体组件的 Muse Linux 主机上：
+
+```sh
+node scripts/probe-muse.mjs --json
+node scripts/senmuse-api.mjs init --native
+node scripts/senmuse-api.mjs doctor
+node scripts/senmuse-api.mjs serve
+```
+
+原生路线只需要 Node.js 24，不必安装 Electron 或浏览器依赖。默认监听 `127.0.0.1:47831`；外部客户端需要当前环境实际支持的网络入口。填写 `publicUrl` 不会自动开放端口。Muse 构件 SDK 中已核实的媒体方法仅支持生图，因此视频走本机媒体 CLI；云主机没有兼容命令时会明确返回未配置。
 
 ## 最简单的用法：把链接发给 Muse
 
@@ -50,7 +81,8 @@ node scripts/senmuse.mjs demo ./senmuse-demo --json
 | 本地合成       | 9∶16、16∶9、1∶1，适应或裁切画面，中文烧录字幕、SRT、可选音轨           |
 | 任务队列       | 持久保存、暂停、取消、手动重试、发送状态不明确时停止并提示检查         |
 | 素材库         | 本地预览、导入图片/视频/音频、定位原文件                               |
-| Agent 接口     | 带密钥的本地 HTTP API 和 MCP stdio 桥接                                |
+| 独立 API 服务 | REST、HTTP MCP、网页控制台、原生组件或加密网关、幂等队列与素材传输 |
+| 桌面 Agent 接口 | 带密钥的本地 HTTP API 和 MCP stdio 桥接 |
 
 “按段落拆分”根据空行整理分镜。角色一致性、画面质量、生成时长取决于 Muse 实际输出。导出的画幅由本地合成控制，裁切可能改变构图。配音目前通过导入音频实现。
 
@@ -62,6 +94,7 @@ node scripts/senmuse.mjs demo ./senmuse-demo --json
 git clone https://github.com/zysen1/senmuse.git
 cd senmuse
 npm ci
+npm ci --prefix api
 npm run build
 npm start
 ```
@@ -84,7 +117,7 @@ Muse 登录保存在 Electron 的独立本机会话中。项目、任务和素�
 
 如果任务显示 **需要检查**，请先打开 Muse 查看结果。应用会暂停队列，避免对已发送但未能确认的请求自动再次生成。确认后可以手动处理任务并继续队列。取消本地任务后，已提交到 Muse 的请求可能继续运行。
 
-## HTTP API
+## 桌面版 HTTP API
 
 在设置中启用本地 API，点击显示密钥。默认地址为 `http://127.0.0.1:47831`，只监听本机，所有接口要求 Bearer token。
 
@@ -110,7 +143,7 @@ curl http://127.0.0.1:47831/v1/jobs \
 | `GET /v1/projects`              | 分镜项目列表          |
 | `POST /v1/projects/{id}/export` | 启动本地成片导出      |
 
-## MCP
+## 桌面版 MCP
 
 MCP 桥接需要本机 Node.js，森映应用保持运行并开启 API。在支持 stdio MCP 的客户端配置中添加以下内容，把脚本路径和密钥替换成自己的值。设置页可以复制当前安装位置对应的配置。
 

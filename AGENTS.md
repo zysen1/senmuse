@@ -1,6 +1,16 @@
 # Working in SenMuse
 
-SenMuse includes a Chinese desktop application and a standalone cloud CLI for assembling videos from local media. When a user gives this repository to an agent running on a Muse Linux cloud host, follow the cloud workflow in [docs/MUSE_CLOUD.md](docs/MUSE_CLOUD.md).
+SenMuse includes a Chinese desktop application, a standalone cloud renderer, and an API provider interface. When the user asks to let Claude/Codex call Muse generation from a Muse Linux host, follow [docs/MUSE_API.md](docs/MUSE_API.md) and the native API workflow below. When the user asks to create a finished video from media, follow [docs/MUSE_CLOUD.md](docs/MUSE_CLOUD.md).
+
+## Connecting native Muse components to the API
+
+1. Run `node scripts/probe-muse.mjs --json` inside the actual Muse host. This only inspects known component paths and help; it must not generate media or expose credentials. Treat component presence, account generation availability, quota and network reachability as distinct facts.
+2. Read the current host's relevant CLI help and SDK types. `/opt/hatch/bin/media-generation`, the Spaces SDK and networking components are discovery candidates, not guaranteed APIs. Do not invent their arguments or call hidden sockets. Do not change Muse-managed proxy daemons.
+3. Run `node scripts/senmuse-api.mjs init --native`; the built-in `scripts/muse-native.mjs` discovers an installed media CLI and enables only operations confirmed by its help. It sends structured prompts and verifies returned `media_paths`. Use `SENMUSE_NATIVE_BIN` for an explicit installed executable. If the runtime differs, use `examples/muse-native-adapter.mjs` to bind its actually documented interface. Keep unavailable modes unconfigured. Do not recursively send generation requests back to the Muse chat agent as a substitute for native integration.
+4. Follow `senmuse-provider-v1` JSONL. Capability discovery must not spend generation quota. Advertise only implemented operations, return actual failures, and copy real results into the provided per-job `outputDir`. Stdout is protocol only; never return secret values or arbitrary VM files.
+5. Configure the command provider with an executable and separate argument array. Establish client connectivity only through an actually supported and authorized network route. A configured URL or a local listener is not proof of outside reachability. Preserve authentication and describe the connection's actual lifetime.
+6. Verify capabilities without generation first. Use user-authorized content for the real generation check. Validate the resulting file and download path. On uncertain dispatch or lost responses, inspect the existing job before any retry; cancellation of local tracking does not prove remote cancellation.
+7. Report precisely what works and any missing native tool, permission, account capability or ingress route. Do not claim a live Muse test based on fixtures, an exported runtime snapshot, or file presence alone.
 
 ## Creating a video in a Linux cloud workspace
 

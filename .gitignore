@@ -7,3 +7,6 @@ release/
 !.env.example
 coverage/
 .test-data/
+
+.senmuse-api/
+.muse-probe/

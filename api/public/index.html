@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="referrer" content="no-referrer" />
+    <title>森映 SenMuse · 创作控制台</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="/app.css" />
+    <script type="module" src="/app.js"></script>
+  </head>
+  <body>
+    <section id="login-view" class="login-shell">
+      <div class="login-intro">
+        <a class="brand" href="/" aria-label="森映首页"
+          ><span class="brand-mark" aria-hidden="true">森</span
+          ><span>森映 <span class="brand-en">SenMuse</span></span></a
+        >
+        <p class="eyebrow">MUSE CREATIVE CONSOLE</p>
+        <h1>从一句描述，<br />到一段新画面。</h1>
+        <p class="intro-copy">
+          连接你的 Muse
+          创作服务。生成图片与视频，跟进每一条任务，取回真实的作品。
+        </p>
+        <div class="intro-lines" aria-hidden="true">
+          <span></span><span></span><span></span>
+        </div>
+      </div>
+      <div class="login-card">
+        <span class="section-index">开始创作 / 01</span>
+        <h2>连接创作服务</h2>
+        <p class="muted">输入当前 SenMuse 服务的访问令牌。</p>
+        <form id="login-form">
+          <label for="token">API 访问令牌</label>
+          <input
+            id="token"
+            type="password"
+            autocomplete="off"
+            spellcheck="false"
+            required
+            placeholder="输入你的专用访问令牌"
+            aria-describedby="token-help"
+          />
+          <p id="token-help" class="field-help">
+            令牌只保存在本页内存，退出或刷新后清除。
+          </p>
+          <button id="login-button" class="button primary wide" type="submit">
+            连接服务 <span aria-hidden="true">↗</span>
+          </button>
+        </form>
+        <p id="login-error" class="notice error" role="alert" hidden></p>
+        <details class="login-help">
+          <summary>在哪里找到访问令牌？</summary>
+          <p>在运行 SenMuse 的主机上执行：</p>
+          <code>node scripts/senmuse-api.mjs token</code>
+          <p>
+            使用了独立数据目录时，添加对应的
+            <code>--data</code> 参数。请勿公开分享令牌。
+          </p>
+        </details>
+      </div>
+    </section>
+
+    <div id="workspace" hidden>
+      <header class="topbar">
+        <a class="brand" href="#create"
+          ><span class="brand-mark" aria-hidden="true">森</span
+          ><span>森映 <span class="brand-en">SenMuse</span></span></a
+        >
+        <nav aria-label="主导航">
+          <a href="#create">创作台</a><a href="#tasks">任务队列</a
+          ><a href="#library">素材库</a>
+        </nav>
+        <button id="logout" class="button quiet" type="button">退出连接</button>
+      </header>
+      <main class="workspace-content">
+        <div class="page-heading">
+          <div>
+            <p class="eyebrow">YOUR CREATIVE WORKSPACE</p>
+            <h1>今天，想创造什么？</h1>
+          </div>
+          <button id="refresh" class="button secondary" type="button">
+            ↻ 刷新状态
+          </button>
+        </div>
+        <div
+          id="global-notice"
+          class="notice"
+          role="status"
+          aria-live="polite"
+          hidden
+        ></div>
+        <div
+          id="connection-error"
+          class="notice error"
+          role="alert"
+          hidden
+        ></div>
+        <div class="creation-layout">
+          <section
+            id="create"
+            class="panel compose-panel"
+            aria-labelledby="create-title"
+          >
+            <div class="panel-heading">
+              <h2 id="create-title">新建创作</h2>
+              <span class="subtle">把想法写清楚，交给 Muse</span>
+            </div>
+            <form id="generation-form">
+              <fieldset id="draft-fields">
+                <legend class="sr-only">生成设置</legend>
+                <label for="kind">创作类型</label>
+                <select id="kind">
+                  <option value="" disabled>等待组件就绪</option>
+                  <option value="video">生成视频</option>
+                  <option value="image">生成图片</option>
+                  <option value="edit">修改视频</option>
+                  <option value="extend">续拍视频</option>
+                </select>
+                <p id="kind-help" class="field-help"></p>
+                <label for="prompt"
+                  >描述你的画面 <span class="label-meta">必填</span></label
+                >
+                <textarea
+                  id="prompt"
+                  rows="6"
+                  maxlength="12000"
+                  required
+                  placeholder="主体是谁？在哪里？正在发生什么？也可以补充镜头运动、光线和氛围。"
+                ></textarea>
+                <div class="form-row">
+                  <div>
+                    <label for="aspect">画幅</label
+                    ><select id="aspect">
+                      <option value="">由 Muse 决定</option>
+                    </select>
+                  </div>
+                  <div id="conversation-field" hidden>
+                    <label for="conversation"
+                      >原会话 ID <span class="label-meta">可选</span></label
+                    ><input
+                      id="conversation"
+                      type="text"
+                      maxlength="150"
+                      spellcheck="false"
+                      autocomplete="off"
+                      placeholder="已有任务的会话 ID"
+                    />
+                  </div>
+                </div>
+                <p id="aspect-help" class="field-help"></p>
+                <div class="reference-heading">
+                  <label for="upload"
+                    >参考素材 <span class="label-meta">最多 4 个</span></label
+                  ><span id="reference-count" class="subtle">已选 0 / 4</span>
+                </div>
+                <div class="upload-box">
+                  <input
+                    id="upload"
+                    type="file"
+                    multiple
+                    accept="image/png,image/jpeg,image/webp,video/mp4,video/webm"
+                  />
+                  <p>上传 PNG、JPG、WebP、MP4 或 WebM，每个不超过 200 MiB。</p>
+                </div>
+                <div
+                  id="selected-references"
+                  class="selected-references"
+                  aria-label="已选参考素材"
+                ></div>
+                <details class="existing-assets">
+                  <summary>从素材库选择</summary>
+                  <div id="reference-library" class="reference-library"></div>
+                </details>
+              </fieldset>
+              <p
+                id="submission-warning"
+                class="notice warning"
+                role="status"
+                hidden
+              ></p>
+              <div class="form-footer">
+                <p class="field-help">
+                  提交会调用当前账户的生成能力，实际用量以 Muse 为准。
+                </p>
+                <button id="generate" class="button primary" type="submit">
+                  开始生成 <span aria-hidden="true">↗</span>
+                </button>
+              </div>
+              <button
+                id="abandon-request"
+                class="button quiet"
+                type="button"
+                hidden
+              >
+                停止重试这次请求
+              </button>
+            </form>
+          </section>
+          <aside class="status-column">
+            <section
+              class="panel connection-panel"
+              aria-labelledby="connection-title"
+            >
+              <p class="eyebrow">服务状态</p>
+              <h2 id="connection-title">
+                <span id="status-dot" class="status-dot"></span
+                ><span id="provider-state">等待检查</span>
+              </h2>
+              <p id="provider-message" class="muted"></p>
+              <div class="divider"></div>
+              <p class="small-label">当前可用功能</p>
+              <div id="capabilities" class="capabilities"></div>
+              <p class="field-help">
+                这里显示组件声明的能力。账户额度与最终可用性以实际生成结果为准。
+              </p>
+            </section>
+            <section class="panel queue-summary">
+              <p class="eyebrow">创作进行中</p>
+              <div class="queue-number">
+                <strong id="active-count">0</strong
+                ><span>条等待或正在生成</span>
+              </div>
+              <div class="queue-line">
+                <span id="queue-state">队列状态待确认</span
+                ><button
+                  id="toggle-queue"
+                  class="button small secondary"
+                  type="button"
+                >
+                  暂停队列
+                </button>
+              </div>
+              <p id="queue-explanation" class="field-help">
+                暂停只影响后续任务，正在生成的任务继续运行。
+              </p>
+            </section>
+            <p class="privacy-note">
+              专属服务 · 令牌仅留在本页<br />页面不会自动重新提交生成请求。
+            </p>
+          </aside>
+        </div>
+        <section id="tasks" class="section-block" aria-labelledby="tasks-title">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">THE PROCESS</p>
+              <h2 id="tasks-title">
+                任务队列 <span id="job-count" class="count-label">0</span>
+              </h2>
+            </div>
+            <p id="last-updated" class="subtle">登录后自动更新</p>
+          </div>
+          <div id="jobs" class="job-list"></div>
+        </section>
+        <section
+          id="library"
+          class="section-block"
+          aria-labelledby="library-title"
+        >
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">YOUR OUTPUTS</p>
+              <h2 id="library-title">
+                素材库 <span id="asset-count" class="count-label">0</span>
+              </h2>
+            </div>
+            <p class="subtle">生成结果与上传素材 · 最近 100 个</p>
+          </div>
+          <div id="assets" class="asset-grid"></div>
+        </section>
+        <footer class="page-footer">
+          <span>森映 SenMuse</span><span>真实生成，清楚记录。</span>
+        </footer>
+      </main>
+    </div>
+  </body>
+</html>

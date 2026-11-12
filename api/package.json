@@ -1,0 +1,22 @@
+{
+  "name": "senmuse-api",
+  "version": "0.3.0-preview.1",
+  "private": true,
+  "type": "module",
+  "description": "独立的 Muse 视频 REST / MCP 服务",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "start": "node ../scripts/senmuse-api.mjs serve",
+    "login": "node ../scripts/senmuse-api.mjs login",
+    "browser:install": "playwright install chromium"
+  },
+  "dependencies": {
+    "playwright": "1.65.0",
+    "undici": "8.12.4"
+  },
+  "devDependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.2"
+  }
+}

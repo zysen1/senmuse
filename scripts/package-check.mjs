@@ -12,7 +12,7 @@ export async function checkPackage(appPath, platform, arch, expectedVersion) {
     const stat = await fs.stat(path.join(root, relative));
     if (!stat.isFile() || !stat.size) throw new Error(`Missing packaged resource: ${relative}`);
   }
-  for (const relative of ["src", "test", ".git", ".github", ".test-data", "node_modules/ffmpeg-static/ffmpeg", "node_modules/ffmpeg-static/ffmpeg.exe"]) {
+  for (const relative of ["src", "test", "api", "examples", ".senmuse-api", ".muse-probe", ".git", ".github", ".test-data", "node_modules/ffmpeg-static/ffmpeg", "node_modules/ffmpeg-static/ffmpeg.exe"]) {
     if (await fs.stat(path.join(root, relative)).then(() => true, () => false)) throw new Error(`Development-only file entered package: ${relative}`);
   }
   if (platform === "win32") {
