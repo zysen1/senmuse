@@ -31,8 +31,6 @@ jobs:
     name: Linux cloud CLI
     runs-on: ubuntu-24.04
     timeout-minutes: 15
-    env:
-      SENMUSE_CACHE_DIR: ${{ runner.temp }}/senmuse-cloud-render-tools
     steps:
       - uses: actions/checkout@v7.0.1
         with:
@@ -41,11 +39,15 @@ jobs:
         with:
           node-version: '24'
       - name: Prepare cloud render tools
+        env:
+          SENMUSE_CACHE_DIR: ${{ runner.temp }}/senmuse-cloud-render-tools
         run: |
           NODE_BIN="$(command -v node)"
           PATH='' "$NODE_BIN" scripts/senmuse.mjs doctor --prepare --json > cloud-doctor.json
           cat cloud-doctor.json
       - name: Render a real cloud demo without npm install
+        env:
+          SENMUSE_CACHE_DIR: ${{ runner.temp }}/senmuse-cloud-render-tools
         run: |
           NODE_BIN="$(command -v node)"
           PATH='' "$NODE_BIN" scripts/senmuse.mjs demo ./cloud-demo --json > cloud-result.json
